@@ -15,6 +15,10 @@
   - **オーバーレイ**: 元論文の図表・レイアウトの上に日本語を重ねて表示（Readable風）
   - **対訳**: 左に原文ページ画像、右に日本語訳
   - **原文**: 元のPDFをそのまま表示
+- **翻訳PDFのダウンロード**
+  - **日本語のみ**: 原文のレイアウトを保ったまま英文を日本語に置換
+  - **英日交互ページ**: 英文ページと日本語ページを交互に並べた対訳冊子
+- **OCR対応**: スキャンPDF（画像のみ）も文字認識して翻訳（Tesseract）
 - **無料**で動く翻訳エンジン（APIキー不要）
 - 翻訳結果を**キャッシュ**して再変換を高速化
 - 図・数式・表はそのまま画像として保持
@@ -109,8 +113,23 @@ Readable/
 | メソッド | パス | 説明 |
 | --- | --- | --- |
 | `GET` | `/api/health` | 稼働確認・既定の翻訳バックエンド |
-| `GET` | `/api/engines` | 利用可能エンジンと Ollama の接続状況・モデル一覧 |
-| `POST` | `/api/convert` | PDF(`file`)を変換。`target`(既定`ja`), `max_pages`(既定`0`=全ページ), `engine`(`google`/`ollama`), `model`(Ollama用) |
+| `GET` | `/api/engines` | 利用可能エンジン・Ollama接続状況・モデル一覧・OCR可否 |
+| `POST` | `/api/convert` | PDF(`file`)を変換。`target`(既定`ja`), `max_pages`(既定`0`=全ページ), `engine`(`google`/`ollama`), `model`(Ollama用), `ocr`(`auto`/`force`/`off`) |
+| `GET` | `/api/download` | 翻訳PDFを取得。`doc_id`(convertの戻り値), `mode`(`ja`=日本語のみ / `alt`=英日交互) |
+
+## 🔎 OCR（スキャンPDF対応）
+
+テキスト層を持たないスキャンPDFは **Tesseract OCR** で文字認識してから翻訳します。
+
+```bash
+# macOS
+brew install tesseract
+# Ubuntu / Debian
+sudo apt-get install -y tesseract-ocr
+```
+
+- 画面の「OCR」で `自動`（スキャンを検出して必要時のみ）/ `常にOCR` / `OCRしない` を選択できます。
+- 未インストールの場合は画面に案内が表示され、テキスト層のあるPDFのみ処理します。
 
 ---
 

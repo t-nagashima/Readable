@@ -118,6 +118,20 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
   font-size: 14px;
 }
 .btn.ghost:hover { background: var(--bg); }
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn.primary:hover { background: #1d4ed8; }
+.download-group { display: flex; gap: 6px; align-items: center; }
+.download-group select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 14px;
+}
 .view-modes { display: flex; gap: 4px; background: var(--border); padding: 3px; border-radius: 10px; }
 .mode-btn {
   border: none;

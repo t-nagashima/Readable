@@ -12,12 +12,14 @@ const docTitle = $("#doc-title");
 
 let currentData = null;
 let currentMode = "overlay";
+let currentDocId = null;
 let ollamaInfo = { available: false, models: [] };
 
 const engineSel = $("#engine");
 const modelLabel = $("#model-label");
 const modelSel = $("#model");
 const ollamaStatusEl = $("#ollama-status");
+const ocrStatusEl = $("#ocr-status");
 
 // ---------- エンジン情報の取得 ----------
 async function loadEngines() {
@@ -27,6 +29,12 @@ async function loadEngines() {
     ollamaInfo = info.ollama || { available: false, models: [] };
     if (info.default === "ollama" && ollamaInfo.available) {
       engineSel.value = "ollama";
+    }
+    if (!info.ocr_available) {
+      ocrStatusEl.className = "ollama-status warn";
+      ocrStatusEl.innerHTML =
+        "⚠️ OCR (Tesseract) が未インストールです。スキャンPDFを変換するには " +
+        "<code>tesseract-ocr</code> をインストールしてください。";
     }
   } catch {
     ollamaInfo = { available: false, models: [] };
@@ -124,6 +132,7 @@ async function handleFile(file) {
   form.append("target", "ja");
   form.append("max_pages", $("#max-pages").value);
   form.append("engine", engine);
+  form.append("ocr", $("#ocr").value);
   if (engine === "ollama") form.append("model", modelSel.value || "qwen2.5");
 
   if (engine === "ollama") {
@@ -138,7 +147,11 @@ async function handleFile(file) {
       throw new Error(err.detail || "変換に失敗しました");
     }
     currentData = await res.json();
+    currentDocId = currentData.doc_id || null;
     docTitle.textContent = currentData.filename || "";
+    if (currentData.ocr_used) {
+      docTitle.textContent += "（OCR適用）";
+    }
     show(resultView);
     render();
   } catch (e) {
@@ -146,6 +159,22 @@ async function handleFile(file) {
     showError(e.message);
   }
 }
+
+// ---------- ダウンロード ----------
+$("#download-btn").addEventListener("click", () => {
+  if (!currentDocId) {
+    alert("ダウンロードできるデータがありません。");
+    return;
+  }
+  const mode = $("#dl-mode").value;
+  const url = `/api/download?doc_id=${encodeURIComponent(currentDocId)}&mode=${mode}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
 
 function showError(msg) {
   const box = document.createElement("div");

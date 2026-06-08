@@ -42,8 +42,17 @@
           モデル:
           <select id="model"></select>
         </label>
+        <label>
+          OCR:
+          <select id="ocr">
+            <option value="auto" selected>自動（スキャンPDFを検出）</option>
+            <option value="force">常にOCR</option>
+            <option value="off">OCRしない</option>
+          </select>
+        </label>
       </div>
       <p id="ollama-status" class="ollama-status"></p>
+      <p id="ocr-status" class="ollama-status"></p>
 
       <p class="hint">
         翻訳は無料の翻訳エンジンを使用します（APIキー不要）。<br />
@@ -66,6 +75,13 @@
           <button class="mode-btn active" data-mode="overlay">オーバーレイ</button>
           <button class="mode-btn" data-mode="side">対訳</button>
           <button class="mode-btn" data-mode="original">原文</button>
+        </div>
+        <div class="download-group">
+          <select id="dl-mode">
+            <option value="ja" selected>日本語のみ</option>
+            <option value="alt">英日交互ページ</option>
+          </select>
+          <button id="download-btn" class="btn primary">⬇ PDFダウンロード</button>
         </div>
       </div>
       <div id="pages" class="pages"></div>
