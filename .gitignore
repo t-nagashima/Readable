@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 翻訳キャッシュ
+backend/.cache/
+
+# OS
+.DS_Store
+
+# エディタ
+.vscode/
+.idea/

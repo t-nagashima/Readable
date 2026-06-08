@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Readable — 英語論文を日本語で読む</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">📄 Readable</div>
+    <div class="tagline">英語論文を、日本語論文のように。</div>
+  </header>
+
+  <main>
+    <!-- アップロード画面 -->
+    <section id="upload-view" class="upload-view">
+      <div id="dropzone" class="dropzone">
+        <div class="dz-icon">⬆️</div>
+        <p class="dz-title">英語のPDF論文をドロップ</p>
+        <p class="dz-sub">またはクリックしてファイルを選択</p>
+        <input type="file" id="file-input" accept="application/pdf" hidden />
+      </div>
+
+      <div class="options">
+        <label>
+          変換ページ数:
+          <select id="max-pages">
+            <option value="3">最初の3ページ（お試し）</option>
+            <option value="10">最初の10ページ</option>
+            <option value="0" selected>すべてのページ</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="hint">
+        翻訳は無料の翻訳エンジンを使用します（APIキー不要）。<br />
+        ※ 著作権・利用規約を守って、ご自身が権利を持つ／公開されている論文にご利用ください。
+      </p>
+    </section>
+
+    <!-- 処理中 -->
+    <section id="loading-view" class="loading-view hidden">
+      <div class="spinner"></div>
+      <p id="loading-text">解析中…</p>
+    </section>
+
+    <!-- 結果表示 -->
+    <section id="result-view" class="result-view hidden">
+      <div class="toolbar">
+        <button id="back-btn" class="btn ghost">← 別のPDF</button>
+        <span id="doc-title" class="doc-title"></span>
+        <div class="view-modes">
+          <button class="mode-btn active" data-mode="overlay">オーバーレイ</button>
+          <button class="mode-btn" data-mode="side">対訳</button>
+          <button class="mode-btn" data-mode="original">原文</button>
+        </div>
+      </div>
+      <div id="pages" class="pages"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
