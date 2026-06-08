@@ -57,17 +57,34 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 .dz-sub { color: var(--muted); margin: 0; }
 
 .options {
-  margin: 20px 0;
+  margin: 20px 0 8px;
   display: flex;
   justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
   color: var(--muted);
 }
+.options label { display: inline-flex; align-items: center; }
 .options select {
   margin-left: 8px;
   padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--panel);
+}
+.ollama-status {
+  text-align: center;
+  font-size: 13px;
+  margin: 4px 0 12px;
+  line-height: 1.7;
+}
+.ollama-status.ok { color: #15803d; }
+.ollama-status.warn { color: #b45309; }
+.ollama-status code {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 .hint { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
 

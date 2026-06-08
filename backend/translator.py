@@ -91,37 +91,102 @@ class GoogleBackend:
 
 
 class OllamaBackend:
-    """ローカル LLM (Ollama) を使った翻訳。完全無料・オフライン。"""
+    """ローカル LLM (Ollama) を使った翻訳。完全無料・オフライン。
+
+    並列実行で複数ブロックを同時翻訳して高速化する。
+    """
 
     name = "ollama"
 
-    def __init__(self) -> None:
-        self._host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-        self._model = os.environ.get("OLLAMA_MODEL", "qwen2.5")
+    def __init__(self, model: str | None = None, host: str | None = None) -> None:
+        self._host = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
+        self._model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5")
+        try:
+            self._concurrency = max(1, int(os.environ.get("OLLAMA_CONCURRENCY", "2")))
+        except ValueError:
+            self._concurrency = 2
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     def translate_batch(self, texts: list[str], target: str) -> list[str]:
-        return [self._translate_one(t, target) for t in texts]
+        if not texts:
+            return []
+        if self._concurrency <= 1 or len(texts) == 1:
+            return [self._translate_one(t, target) for t in texts]
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=self._concurrency) as pool:
+            return list(pool.map(lambda t: self._translate_one(t, target), texts))
 
     def _translate_one(self, text: str, target: str) -> str:
+        import urllib.error
         import urllib.request
 
         lang = "日本語" if target == "ja" else target
         prompt = (
-            f"次の学術論文の英文を自然な{lang}に翻訳してください。"
-            "訳文だけを出力し、余計な説明・前置きは一切付けないでください。\n\n"
-            f"{text}"
+            f"あなたは学術論文の翻訳者です。次の英文を自然で読みやすい{lang}に翻訳してください。"
+            "専門用語は適切な訳語を用い、訳文のみを出力してください。"
+            "前置き・解説・原文の繰り返しは一切不要です。\n\n"
+            f"=== 原文 ===\n{text}\n=== 訳文 ==="
         )
         payload = json.dumps(
-            {"model": self._model, "prompt": prompt, "stream": False}
+            {
+                "model": self._model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.2},
+            }
         ).encode("utf-8")
         req = urllib.request.Request(
             f"{self._host}/api/generate",
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        try:
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "ignore")[:200]
+            raise RuntimeError(
+                f"Ollama がエラーを返しました (HTTP {e.code})。"
+                f"モデル '{self._model}' を `ollama pull {self._model}` で取得済みか確認してください。{detail}"
+            ) from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(
+                f"Ollama ({self._host}) に接続できません。`ollama serve` が起動しているか確認してください。理由: {e.reason}"
+            ) from e
+        return _clean_llm_output(data.get("response") or "")
+
+
+def _clean_llm_output(text: str) -> str:
+    """LLM 出力から思考タグや余計な前置きを取り除く。"""
+    import re
+
+    # <think>...</think> など推論モデルの思考ブロックを除去
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
+    text = text.strip()
+    # 区切りマーカーが残っていたら以降を採用
+    if "=== 訳文 ===" in text:
+        text = text.split("=== 訳文 ===")[-1].strip()
+    return text.strip()
+
+
+def ollama_status(host: str | None = None) -> dict:
+    """Ollama の稼働状況とインストール済みモデル一覧を返す。"""
+    import urllib.error
+    import urllib.request
+
+    base = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{base}/api/tags", timeout=4) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return (data.get("response") or "").strip()
+        models = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+        return {"available": True, "host": base, "models": models}
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"available": False, "host": base, "models": [], "error": str(e)}
 
 
 def _split_for_limit(text: str, limit: int) -> list[str]:
@@ -150,25 +215,52 @@ def _split_for_limit(text: str, limit: int) -> list[str]:
 # ----------------------------------------------------------------------------
 # 公開 API
 # ----------------------------------------------------------------------------
-_backend = None
+_backend_cache: dict[tuple[str, str], object] = {}
 _backend_lock = threading.Lock()
 
 
-def get_backend():
-    global _backend
+def default_backend_name() -> str:
+    return os.environ.get("TRANSLATOR_BACKEND", "google").lower()
+
+
+def make_backend(name: str | None = None, model: str | None = None):
+    """名前（とモデル）からバックエンドを生成・キャッシュして返す。"""
+    name = (name or default_backend_name()).lower()
+    if name == "ollama":
+        model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5")
+        cache_key = ("ollama", model)
+    else:
+        name = "google"
+        cache_key = ("google", "")
     with _backend_lock:
-        if _backend is None:
-            name = os.environ.get("TRANSLATOR_BACKEND", "google").lower()
-            if name == "ollama":
-                _backend = OllamaBackend()
-            else:
-                _backend = GoogleBackend()
-        return _backend
+        if cache_key not in _backend_cache:
+            _backend_cache[cache_key] = (
+                OllamaBackend(model=model) if name == "ollama" else GoogleBackend()
+            )
+        return _backend_cache[cache_key]
 
 
-def translate_texts(texts: list[str], target: str = "ja") -> list[str]:
+def get_backend():
+    """既定（環境変数）のバックエンド。"""
+    return make_backend()
+
+
+def _cache_namespace(backend) -> str:
+    """キャッシュキー用の名前空間。Ollama はモデルごとに分ける。"""
+    if getattr(backend, "name", "") == "ollama":
+        return f"ollama:{getattr(backend, 'model', '')}"
+    return backend.name
+
+
+def translate_texts(
+    texts: list[str],
+    target: str = "ja",
+    backend_name: str | None = None,
+    model: str | None = None,
+) -> list[str]:
     """テキストのリストを翻訳。キャッシュ済みのものは再利用する。"""
-    backend = get_backend()
+    backend = make_backend(backend_name, model)
+    ns = _cache_namespace(backend)
     results: list[str | None] = [None] * len(texts)
     todo: list[tuple[int, str]] = []
 
@@ -177,7 +269,7 @@ def translate_texts(texts: list[str], target: str = "ja") -> list[str]:
         if not stripped:
             results[i] = ""
             continue
-        key = _cache_key(stripped, backend.name, target)
+        key = _cache_key(stripped, ns, target)
         cached = _cache_get(key)
         if cached is not None:
             results[i] = cached
@@ -189,7 +281,7 @@ def translate_texts(texts: list[str], target: str = "ja") -> list[str]:
         for (i, src), dst in zip(todo, translated):
             dst = dst or ""
             results[i] = dst
-            _cache_put(_cache_key(src, backend.name, target), dst)
+            _cache_put(_cache_key(src, ns, target), dst)
         flush_cache()
 
     return [r if r is not None else "" for r in results]

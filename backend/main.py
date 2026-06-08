@@ -36,7 +36,18 @@ MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "30"))
 def health():
     return {
         "status": "ok",
-        "translator_backend": translator.get_backend().name,
+        "default_backend": translator.default_backend_name(),
+    }
+
+
+@app.get("/api/engines")
+def engines():
+    """利用可能な翻訳エンジンと、Ollama の状態・モデル一覧を返す。"""
+    ollama = translator.ollama_status()
+    return {
+        "default": translator.default_backend_name(),
+        "engines": ["google", "ollama"],
+        "ollama": ollama,
     }
 
 
@@ -45,6 +56,8 @@ async def convert(
     file: UploadFile = File(...),
     target: str = Form("ja"),
     max_pages: int = Form(0),
+    engine: str = Form(""),
+    model: str = Form(""),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="PDFファイルをアップロードしてください。")
@@ -62,17 +75,25 @@ async def convert(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"PDFの解析に失敗しました: {e}")
 
+    backend_name = engine.strip().lower() or None
+    model_name = model.strip() or None
+
     # 各ページのブロックをまとめて翻訳
     try:
         for page in result["pages"]:
             sources = [b["source"] for b in page["blocks"]]
-            translations = translator.translate_texts(sources, target=target)
+            translations = translator.translate_texts(
+                sources, target=target, backend_name=backend_name, model=model_name
+            )
             for b, tr in zip(page["blocks"], translations):
                 b["target"] = tr
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"翻訳に失敗しました: {e}")
 
+    used = translator.make_backend(backend_name, model_name)
     result["filename"] = file.filename
+    result["engine"] = getattr(used, "name", "google")
+    result["model"] = getattr(used, "model", None)
     return JSONResponse(result)
 
 

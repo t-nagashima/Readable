@@ -31,7 +31,19 @@
             <option value="0" selected>すべてのページ</option>
           </select>
         </label>
+        <label>
+          翻訳エンジン:
+          <select id="engine">
+            <option value="google" selected>Google翻訳（無料・高速）</option>
+            <option value="ollama">ローカルLLM (Ollama)</option>
+          </select>
+        </label>
+        <label id="model-label" class="hidden">
+          モデル:
+          <select id="model"></select>
+        </label>
       </div>
+      <p id="ollama-status" class="ollama-status"></p>
 
       <p class="hint">
         翻訳は無料の翻訳エンジンを使用します（APIキー不要）。<br />

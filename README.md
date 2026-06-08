@@ -45,24 +45,33 @@ python main.py
 
 ## 🌐 翻訳エンジンの切り替え
 
-デフォルトは Google 翻訳（無料・キー不要）。環境変数で変更できます。
+エンジンは **画面上のプルダウンで選択**できます（デフォルトは Google 翻訳）。
 
-### ローカルLLM (Ollama) を使う（完全無料・オフライン）
+- **Google翻訳**: 無料・キー不要・高速。すぐ使える。
+- **ローカルLLM (Ollama)**: 完全無料・オフライン。論文向けに自然な訳になりやすい。
 
-```bash
-# 事前に Ollama をインストールしてモデルを取得
-#   https://ollama.com/
-ollama pull qwen2.5
+### ローカルLLM (Ollama) を使う
 
-# Ollama バックエンドで起動
-TRANSLATOR_BACKEND=ollama OLLAMA_MODEL=qwen2.5 python backend/main.py
-```
+1. Ollama をインストール: https://ollama.com/
+2. モデルを取得して起動:
+   ```bash
+   ollama pull qwen2.5   # 日本語が得意なモデルの一例
+   ollama serve          # 通常はインストール時に自動起動
+   ```
+3. Readable を起動し、画面の「翻訳エンジン」で **ローカルLLM (Ollama)** を選択。
+   - Ollama が起動していれば**接続状況とインストール済みモデルが自動表示**され、モデルを選べます。
+   - 接続できない場合は画面に対処方法が表示されます。
+
+> モデルのおすすめ: `qwen2.5`, `gemma2`, `aya` など日本語に強いものが快適です。
+
+### 環境変数（任意）
 
 | 環境変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `TRANSLATOR_BACKEND` | `google` | `google` または `ollama` |
+| `TRANSLATOR_BACKEND` | `google` | 既定エンジン。`google` または `ollama` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama のホスト |
-| `OLLAMA_MODEL` | `qwen2.5` | 使用するモデル名 |
+| `OLLAMA_MODEL` | `qwen2.5` | 既定モデル名 |
+| `OLLAMA_CONCURRENCY` | `2` | Ollama 翻訳の並列数 |
 | `MAX_UPLOAD_MB` | `30` | アップロード上限(MB) |
 | `PORT` | `8000` | サーバーポート |
 | `TRANSLATE_CACHE_DIR` | `backend/.cache` | 翻訳キャッシュの保存先 |
@@ -99,8 +108,9 @@ Readable/
 
 | メソッド | パス | 説明 |
 | --- | --- | --- |
-| `GET` | `/api/health` | 稼働確認・現在の翻訳バックエンド |
-| `POST` | `/api/convert` | PDF(`file`)をアップロードして変換。`target`(既定`ja`), `max_pages`(既定`0`=全ページ) |
+| `GET` | `/api/health` | 稼働確認・既定の翻訳バックエンド |
+| `GET` | `/api/engines` | 利用可能エンジンと Ollama の接続状況・モデル一覧 |
+| `POST` | `/api/convert` | PDF(`file`)を変換。`target`(既定`ja`), `max_pages`(既定`0`=全ページ), `engine`(`google`/`ollama`), `model`(Ollama用) |
 
 ---
 

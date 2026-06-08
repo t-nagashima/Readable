@@ -12,6 +12,59 @@ const docTitle = $("#doc-title");
 
 let currentData = null;
 let currentMode = "overlay";
+let ollamaInfo = { available: false, models: [] };
+
+const engineSel = $("#engine");
+const modelLabel = $("#model-label");
+const modelSel = $("#model");
+const ollamaStatusEl = $("#ollama-status");
+
+// ---------- エンジン情報の取得 ----------
+async function loadEngines() {
+  try {
+    const res = await fetch("/api/engines");
+    const info = await res.json();
+    ollamaInfo = info.ollama || { available: false, models: [] };
+    if (info.default === "ollama" && ollamaInfo.available) {
+      engineSel.value = "ollama";
+    }
+  } catch {
+    ollamaInfo = { available: false, models: [] };
+  }
+  updateEngineUI();
+}
+
+function updateEngineUI() {
+  const isOllama = engineSel.value === "ollama";
+  modelLabel.classList.toggle("hidden", !isOllama);
+
+  if (!isOllama) {
+    ollamaStatusEl.textContent = "";
+    return;
+  }
+
+  if (ollamaInfo.available) {
+    modelSel.innerHTML = "";
+    const models = ollamaInfo.models.length ? ollamaInfo.models : ["qwen2.5"];
+    for (const m of models) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      modelSel.appendChild(opt);
+    }
+    ollamaStatusEl.className = "ollama-status ok";
+    ollamaStatusEl.textContent = `✅ Ollama 接続OK（${ollamaInfo.host}） — モデル ${models.length} 件`;
+  } else {
+    modelSel.innerHTML = '<option value="qwen2.5">qwen2.5</option>';
+    ollamaStatusEl.className = "ollama-status warn";
+    ollamaStatusEl.innerHTML =
+      "⚠️ Ollama に接続できません。<br>" +
+      "<code>ollama serve</code> を起動し <code>ollama pull qwen2.5</code> でモデルを取得してください。";
+  }
+}
+
+engineSel.addEventListener("change", updateEngineUI);
+loadEngines();
 
 // ---------- 画面遷移 ----------
 function show(view) {
@@ -65,10 +118,18 @@ async function handleFile(file) {
   show(loadingView);
   loadingText.textContent = "PDFを解析・翻訳中…（ページ数によって数十秒かかります）";
 
+  const engine = engineSel.value;
   const form = new FormData();
   form.append("file", file);
   form.append("target", "ja");
   form.append("max_pages", $("#max-pages").value);
+  form.append("engine", engine);
+  if (engine === "ollama") form.append("model", modelSel.value || "qwen2.5");
+
+  if (engine === "ollama") {
+    loadingText.textContent =
+      "ローカルLLM (Ollama) で翻訳中…（モデルやページ数により数分かかることがあります）";
+  }
 
   try {
     const res = await fetch("/api/convert", { method: "POST", body: form });
