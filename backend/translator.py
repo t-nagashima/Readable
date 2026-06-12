@@ -101,10 +101,17 @@ class OllamaBackend:
     def __init__(self, model: str | None = None, host: str | None = None) -> None:
         self._host = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
         self._model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5")
+        # CPU 実行では並列にしても速くならず、待ち時間でタイムアウトしやすいので
+        # 既定は逐次(1)。GPU 環境などでは OLLAMA_CONCURRENCY で増やせる。
         try:
-            self._concurrency = max(1, int(os.environ.get("OLLAMA_CONCURRENCY", "2")))
+            self._concurrency = max(1, int(os.environ.get("OLLAMA_CONCURRENCY", "1")))
         except ValueError:
-            self._concurrency = 2
+            self._concurrency = 1
+        # 1 ブロックあたりの待ち時間上限（秒）。CPU やコールドスタートを考慮し既定 300。
+        try:
+            self._timeout = max(30, int(os.environ.get("OLLAMA_TIMEOUT", "300")))
+        except ValueError:
+            self._timeout = 300
 
     @property
     def model(self) -> str:
@@ -145,7 +152,7 @@ class OllamaBackend:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=180) as resp:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "ignore")[:200]
@@ -153,9 +160,17 @@ class OllamaBackend:
                 f"Ollama がエラーを返しました (HTTP {e.code})。"
                 f"モデル '{self._model}' を `ollama pull {self._model}` で取得済みか確認してください。{detail}"
             ) from e
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            reason = getattr(e, "reason", e)
+            if isinstance(reason, TimeoutError) or isinstance(e, TimeoutError):
+                raise RuntimeError(
+                    f"Ollama の応答が {self._timeout} 秒以内に返りませんでした。"
+                    f"GPUが無い環境ではモデル '{self._model}' の翻訳が遅い可能性があります。"
+                    "より小さいモデル（例: qwen2.5:3b, gemma2:2b）を使うか、"
+                    "OLLAMA_TIMEOUT を大きくしてください。"
+                ) from e
             raise RuntimeError(
-                f"Ollama ({self._host}) に接続できません。`ollama serve` が起動しているか確認してください。理由: {e.reason}"
+                f"Ollama ({self._host}) に接続できません。`ollama serve` が起動しているか確認してください。理由: {reason}"
             ) from e
         return _clean_llm_output(data.get("response") or "")
 

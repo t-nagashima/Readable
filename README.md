@@ -155,10 +155,34 @@ python main.py
 | `TRANSLATOR_BACKEND` | `google` | 既定エンジン。`google` または `ollama` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama のホスト |
 | `OLLAMA_MODEL` | `qwen2.5` | 既定モデル名 |
-| `OLLAMA_CONCURRENCY` | `2` | Ollama 翻訳の並列数 |
+| `OLLAMA_CONCURRENCY` | `1` | Ollama 翻訳の並列数（CPUは1推奨。GPUなら増やすと速い）|
+| `OLLAMA_TIMEOUT` | `300` | 1ブロックあたりの応答待ち上限（秒）|
 | `MAX_UPLOAD_MB` | `30` | アップロード上限(MB) |
 | `PORT` | `8000` | サーバーポート |
 | `TRANSLATE_CACHE_DIR` | `backend/.cache` | 翻訳キャッシュの保存先 |
+
+---
+
+## 🐢 Ollama が遅い / タイムアウトするとき
+
+Ollama は **GPU が無いと CPU だけで推論**するため、モデルによっては1ブロックに
+数十秒〜数分かかり、タイムアウトすることがあります。対策：
+
+1. **小さいモデルを使う**（最も効果的）。CPU でも実用的な軽量モデル例：
+   ```bash
+   ollama pull qwen2.5:3b     # 軽量で日本語も比較的良好
+   ollama pull gemma2:2b      # さらに軽量
+   # 使うとき
+   python readable.py paper.pdf --model qwen2.5:3b
+   ```
+2. **タイムアウトを延ばす**: `OLLAMA_TIMEOUT=600`（秒）
+3. **並列数は 1 のまま**にする（CPU では並列にしても速くならず、待ちでタイムアウトしやすい）
+4. **お試しで先頭数ページだけ**変換して様子を見る: `--pages 3`
+5. 急ぐ／品質が許容できるなら、GPU不要で速い **Google翻訳**に切替: `--engine google`
+
+> 目安: GPUありなら数百ページもすぐですが、CPUのみだと小型モデルでも論文1本に
+> 数分〜十数分かかることがあります。`setup.sh qwen2.5:3b` のように軽量モデルで
+> 構築するのがおすすめです。
 
 ---
 
