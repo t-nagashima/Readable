@@ -104,10 +104,13 @@ def _extract_blocks(page, pno: int, textpage) -> list[dict]:
     return blocks_out
 
 
-def process_pdf(data: bytes, max_pages: int = 0, ocr: str = "auto") -> dict:
+def process_pdf(
+    data: bytes, max_pages: int = 0, ocr: str = "auto", render_images: bool = True
+) -> dict:
     """PDF バイト列を解析して、ページごとの画像とブロック情報を返す。
 
     ocr: "auto"(既定/必要時のみOCR) / "force"(常にOCR) / "off"(OCRしない)
+    render_images: False ならページ画像(base64)を生成しない（CLI/高速化用）
 
     返り値:
         {
@@ -138,9 +141,14 @@ def process_pdf(data: bytes, max_pages: int = 0, ocr: str = "auto") -> dict:
         page = doc.load_page(pno)
         rect = page.rect
 
-        # ページ画像（PNG → base64）
-        pix = page.get_pixmap(matrix=mat, alpha=False)
-        img_b64 = base64.b64encode(pix.tobytes("png")).decode("ascii")
+        # ページ画像（PNG → base64）。CLI では不要なのでスキップ可。
+        if render_images:
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            image = "data:image/png;base64," + base64.b64encode(
+                pix.tobytes("png")
+            ).decode("ascii")
+        else:
+            image = None
 
         textpage, page_ocr = _get_page_textpage(page, ocr)
         ocr_used_any = ocr_used_any or page_ocr
@@ -151,7 +159,7 @@ def process_pdf(data: bytes, max_pages: int = 0, ocr: str = "auto") -> dict:
                 "index": pno,
                 "width": round(rect.width, 1),
                 "height": round(rect.height, 1),
-                "image": f"data:image/png;base64,{img_b64}",
+                "image": image,
                 "ocr": page_ocr,
                 "blocks": blocks_out,
             }

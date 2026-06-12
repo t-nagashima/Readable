@@ -1,16 +1,75 @@
 # 📄 Readable
 
-英語のPDF論文を、**レイアウトを保ったまま日本語論文のように**読めるようにするWebサービス。
+英語のPDF論文を、**レイアウトを保ったまま日本語論文のように**読めるようにするツール。
 [Readable](https://readable.jp/) のようなツールのオープン実装です。
 
-翻訳は**無料・APIキー不要**（Google翻訳の無料エンドポイント）で動作します。
-ローカルLLM（Ollama）にも切り替え可能です。
+**コマンドライン（CLI）** と **Webアプリ** の両方で使えます。
+翻訳は**無料・APIキー不要**（Google翻訳の無料エンドポイント）か、ローカルLLM（Ollama）で動作します。
+
+---
+
+## ⚡ クイックスタート（CLI / Ollama）
+
+```bash
+# 1) 実行環境を一発構築（Python依存 + Tesseract + Ollama + モデル取得）
+./setup.sh
+
+# 2) 仮想環境を有効化して変換
+source .venv/bin/activate
+python readable.py paper.pdf                 # → paper_ja.pdf
+python readable.py ./papers -o ./out         # フォルダ一括 → 個別出力
+python readable.py paper.pdf --mode both     # 日本語のみ + 英日交互の両方
+```
+
+---
+
+## 🖥 CLI の使い方
+
+ブラウザ不要。1ファイル指定でも、フォルダまるごと一括でも変換できます。
+
+```bash
+python readable.py <PDFファイル or フォルダ> [オプション]
+```
+
+| オプション | 既定 | 説明 |
+| --- | --- | --- |
+| `--mode {ja,alt,both}` | `ja` | `ja`=日本語のみ / `alt`=英日交互 / `both`=両方 |
+| `--engine {ollama,google}` | `ollama` | 翻訳エンジン |
+| `--model NAME` | `qwen2.5` | Ollama のモデル名 |
+| `--ocr {auto,force,off}` | `auto` | スキャンPDFのOCR |
+| `-o, --output DIR` | 入力と同じ場所 | 出力先フォルダ |
+| `-r, --recursive` | - | フォルダを再帰的に探索 |
+| `--pages N` | `0`(全部) | 先頭Nページのみ |
+
+出力ファイル名は `元ファイル名_ja.pdf` / `元ファイル名_bilingual.pdf` になります。
+
+```bash
+# 例: フォルダを再帰探索し、Google翻訳（無料）で日本語化
+python readable.py ./papers -r --engine google -o ./out
+
+# 例: スキャンPDFを常にOCRして英日交互で出力
+python readable.py scan.pdf --ocr force --mode alt
+```
+
+### 環境構築（`./setup.sh`）
+
+`setup.sh` が以下を自動で行います（OSを判別、冪等）。
+
+1. Python 仮想環境 `.venv` + 依存パッケージ
+2. Tesseract（OCR・任意）
+3. **Ollama 本体のインストール・サーバ起動・モデル取得**
+
+```bash
+./setup.sh            # 既定モデル qwen2.5
+./setup.sh gemma2     # 別モデルを指定
+```
 
 ---
 
 ## ✨ 特長
 
-- **PDFをドラッグ&ドロップ**するだけで日本語化
+- **CLI / Web** の両対応（CLIはフォルダ一括変換が可能）
+- **PDFをドラッグ&ドロップ**するだけで日本語化（Web）
 - **3つの表示モード**
   - **オーバーレイ**: 元論文の図表・レイアウトの上に日本語を重ねて表示（Readable風）
   - **対訳**: 左に原文ページ画像、右に日本語訳
@@ -86,16 +145,19 @@ python main.py
 
 ```
 Readable/
+├── readable.py            # CLI（1ファイル / フォルダ一括変換）
+├── setup.sh               # 環境一発構築（Python + Tesseract + Ollama + モデル）
 ├── backend/
 │   ├── main.py            # FastAPI アプリ（API + 静的配信）
-│   ├── pdf_processor.py   # PyMuPDF でPDF解析・ページ画像化・ブロック抽出
+│   ├── pdf_processor.py   # PyMuPDF でPDF解析・OCR・ブロック抽出
+│   ├── pdf_export.py      # 翻訳結果から日本語/英日交互PDFを生成
 │   ├── translator.py      # 翻訳エンジン（Google / Ollama + キャッシュ）
 │   └── requirements.txt
 ├── frontend/
 │   ├── index.html         # UI
 │   ├── app.js             # アップロード・表示ロジック
 │   └── style.css
-├── run.sh                 # ワンコマンド起動
+├── run.sh                 # Webアプリ起動
 └── README.md
 ```
 
