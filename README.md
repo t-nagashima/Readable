@@ -10,6 +10,8 @@
 
 ## ⚡ クイックスタート（CLI / Ollama）
 
+### macOS / Linux
+
 ```bash
 # 1) 実行環境を一発構築（Python依存 + Tesseract + Ollama + モデル取得）
 ./setup.sh
@@ -20,6 +22,25 @@ python readable.py paper.pdf                 # → paper_ja.pdf
 python readable.py ./papers -o ./out         # フォルダ一括 → 個別出力
 python readable.py paper.pdf --mode both     # 日本語のみ + 英日交互の両方
 ```
+
+### Windows（コマンドプロンプト）
+
+> ⚠️ `setup.sh` は bash 用なので **Windows の cmd では動きません**。
+> Windows では **`setup.bat`** を使ってください（ダブルクリック、または cmd で実行）。
+
+```bat
+REM 1) 実行環境を一発構築（Python依存 + Tesseract + Ollama + モデル取得）
+setup.bat
+
+REM 2) 変換（仮想環境のpythonを直接呼ぶのが簡単）
+.venv\Scripts\python.exe readable.py paper.pdf
+.venv\Scripts\python.exe readable.py .\papers -o .\out
+.venv\Scripts\python.exe readable.py paper.pdf --mode both
+```
+
+- 事前に [Python](https://www.python.org/downloads/) が必要です（インストール時に **「Add python.exe to PATH」にチェック**）。
+- Ollama / Tesseract の自動導入には **winget**（Windows 10/11 標準）を使います。無い場合は画面の案内に従って手動導入してください。
+- `setup.bat` で Ollama を新規導入した直後は、いったん**ウィンドウを閉じて開き直す**と `ollama` コマンドが使えるようになります。
 
 ---
 

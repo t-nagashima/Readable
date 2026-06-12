@@ -33,6 +33,13 @@ import sys
 import time
 from pathlib import Path
 
+# Windows の cmd 等でも日本語・記号を安全に出力する（cp932 でのクラッシュ回避）
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # backend/ のモジュールを import できるようにする
 _BACKEND = Path(__file__).resolve().parent / "backend"
 sys.path.insert(0, str(_BACKEND))
