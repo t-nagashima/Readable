@@ -8,6 +8,11 @@ env/
 # 翻訳キャッシュ
 backend/.cache/
 
+# PyInstaller のビルド成果物
+build/
+dist/
+*.spec
+
 # OS
 .DS_Store
 

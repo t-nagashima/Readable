@@ -40,8 +40,13 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-# backend/ のモジュールを import できるようにする
-_BACKEND = Path(__file__).resolve().parent / "backend"
+# backend/ のモジュールを import できるようにする。
+# PyInstaller で exe 化した場合は同梱データ(_MEIPASS)から読み込む。
+if getattr(sys, "frozen", False):
+    _BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+else:
+    _BASE = Path(__file__).resolve().parent
+_BACKEND = _BASE / "backend"
 sys.path.insert(0, str(_BACKEND))
 
 import pdf_export  # noqa: E402
@@ -50,7 +55,11 @@ import translator  # noqa: E402
 
 
 def _eprint(*args) -> None:
-    print(*args, file=sys.stderr, flush=True)
+    # windowed な exe では sys.stderr が None になり得るため安全化
+    try:
+        print(*args, file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 
 def collect_pdfs(input_path: Path, recursive: bool) -> list[Path]:
@@ -87,8 +96,15 @@ def translate_pdf(
     model: str | None,
     ocr: str,
     pages: int,
+    progress=None,
+    log=None,
 ) -> list[Path]:
-    """1つのPDFを変換し、生成したファイルパスの一覧を返す。"""
+    """1つのPDFを変換し、生成したファイルパスの一覧を返す。
+
+    progress: progress(done_pages, total_pages) を各ページ翻訳後に呼ぶ（任意）
+    log:      log(message:str) で進捗メッセージを通知（任意。既定は標準エラー）
+    """
+    say = log or _eprint
     data = src.read_bytes()
 
     # 解析（CLIではページ画像は不要なので生成しない）
@@ -96,21 +112,21 @@ def translate_pdf(
         data, max_pages=pages, ocr=ocr, render_images=False
     )
 
-    # 翻訳（ページごとにブロックをまとめて）
-    n_blocks = 0
-    for page in result["pages"]:
-        sources = [b["source"] for b in page["blocks"]]
-        if not sources:
-            continue
-        translations = translator.translate_texts(
-            sources, target="ja", backend_name=engine, model=model
-        )
-        for b, tr in zip(page["blocks"], translations):
-            b["target"] = tr
-        n_blocks += len(sources)
-
     if result.get("ocr_used"):
-        _eprint("    （スキャンを検出: OCRを適用しました）")
+        say("    （スキャンを検出: OCRを適用しました）")
+
+    # 翻訳（ページごとにブロックをまとめて）
+    total = len(result["pages"])
+    for i, page in enumerate(result["pages"], 1):
+        sources = [b["source"] for b in page["blocks"]]
+        if sources:
+            translations = translator.translate_texts(
+                sources, target="ja", backend_name=engine, model=model
+            )
+            for b, tr in zip(page["blocks"], translations):
+                b["target"] = tr
+        if progress:
+            progress(i, total)
 
     # PDF 生成
     written: list[Path] = []

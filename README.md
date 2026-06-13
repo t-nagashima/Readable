@@ -8,6 +8,36 @@
 
 ---
 
+## 🖱 GUI で使う（コマンド入力不要・おすすめ）
+
+ファイル/フォルダを選んでボタンを押すだけのデスクトップアプリです。
+
+### Windows
+
+```bat
+REM そのまま起動（初回は依存を自動セットアップ。コンソールは出ません）
+run_gui.bat
+
+REM もしくは単体の exe にビルドして配布・常用する
+build_exe.bat        REM → dist\Readable.exe が完成。以後はダブルクリックで起動
+```
+
+### macOS / Linux
+
+```bash
+./run_gui.sh
+```
+
+GUIでできること：入力（ファイル/フォルダ）選択、出力先指定、出力形式
+（日本語のみ / 英日交互 / 両方）、エンジン（Ollama / Google翻訳）とモデル選択、
+OCR切替、進捗表示、終了後に出力フォルダを開く。
+
+> Ollama を使う場合は、別途 `setup.bat`（Windows）/ `setup.sh`（mac/Linux）で
+> Ollama 本体とモデルを導入してください。Google翻訳エンジンは導入不要で使えます。
+> スキャンPDFのOCRには Tesseract が必要です。
+
+---
+
 ## ⚡ クイックスタート（CLI / Ollama）
 
 ### macOS / Linux
@@ -190,7 +220,12 @@ Ollama は **GPU が無いと CPU だけで推論**するため、モデルに�
 
 ```
 Readable/
+├── gui.py                 # デスクトップGUI（Tkinter）
 ├── readable.py            # CLI（1ファイル / フォルダ一括変換）
+├── run_gui.bat            # GUI起動 (Windows)
+├── run_gui.sh             # GUI起動 (mac/Linux)
+├── build_exe.bat          # GUIを単体exeにビルド (Windows / PyInstaller)
+├── setup.bat              # 環境一発構築 (Windows)
 ├── setup.sh               # 環境一発構築（Python + Tesseract + Ollama + モデル）
 ├── backend/
 │   ├── main.py            # FastAPI アプリ（API + 静的配信）
